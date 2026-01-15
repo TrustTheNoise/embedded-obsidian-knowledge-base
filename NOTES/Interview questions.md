@@ -1,0 +1,873 @@
+Tags:
+
+Links: [Embedded Software Engineering Interview Questions & Answers - YouTube](https://www.youtube.com/watch?v=-7pfWTp_FsU&t=77s)
+[Cracking Embedded Systems Interview| Full Guide| Top Interview Questions and Answers - YouTube](https://www.youtube.com/watch?v=AMxNDfLJrg0&t=226s)
+[Interview Readiness - Embedded C Programming - YouTube](https://www.youtube.com/playlist?list=PL3uLubnzL2TnTmH9_u5gvNL9uXzZ--pbq)
+
+
+Questions from comments:
+***
+
+<span style="font-size: 25">List of content:</span>
+
+```table-of-contents
+```
+
+***
+
+<span style="font-size: 25">Tasks:</span>
+
+```tasks
+```
+
+***
+
+# Что нужно дополнительно выучить
+
+- RTOS
+- модули ядра и драйверы Linux
+- Опыт работы с функциями загрузчика(u-boot)
+- Bluetooth
+- SpaceWire, TCP/IP, UDP
+- UI тестирование
+- CMake
+- Python
+- понимание методов и теорий разработки объектно-ориентированных и сервис-ориентированных приложений, сетевых протоколов и принципов.
+- С++ и стандартных библиотек
+
+- Английский
+	- **set expressions**, **idiomatic expressions**, или **fixed phrases**.
+
+1) What is a race condition? What causes it and how to avoid it? 
+2) What happens in a startup code? 
+3) How does a cpu handle an interrupt? 
+4) what is an interrupt latency? How can it be measured? 
+5) What is a software interrupt? 
+6) what is the difference between a breakpoint and watchpoint? 
+7) What is meant by board bringup activity? 
+8) Explain a scenario where you have used a logic analyzer
+
+
+# Вопросы по коду
+
+## Зачем static?
+
+- Inside a function
+Normally, a local variable is created on the stack when the function is called, destroyed when it returns.
+Normally, a local variable inside a function is created on the stack when the function is called and destroyed when it returns. Declaring it `static` changes its **storage duration** to **static storage**, so its lifetime persists for the **entire program execution**.
+**Uninitialized static variables** are placed in the `.bss` section, and **initialized static variables** go in the `.data` section of RAM as a global variables. But unlike variables, the **scope of a static local variable is limited to the function**, so it cannot be accessed outside.
+
+- static at file/global scope
+Normally, global variables and functions have **external linkage**: visible to other translation units. Declaring them `static` gives **internal linkage**: visible **only within the translation unit (source file)**.
+Prevents symbol conflicts when multiple files define functions/variables with the same name.
+
+## Зачем ключевое слово volatile C?
+
+`volatile` сообщает компилятору, что значение объекта **может изменяться вне текущего потока управления программы**, поэтому **каждое обращение к нему является наблюдаемым побочным эффектом** и не может быть оптимизировано или удалено.
+
+Компилятор обязан **выполнять каждое чтение и каждую запись к volatile-объекту как реальный доступ к памяти** и **сохранять порядок этих доступов относительно других volatile-доступов**, как он задан в исходном коде. Это запрещает кэширование значения в регистрах, удаление «лишних» чтений и объединение операций.
+
+`volatile` используется, когда объект может быть изменён **аппаратурой, ISR, DMA или другим исполняющим контекстом**, о котором компилятор не имеет информации.
+
+`volatile` is used for:
+- Hardware registers (peripherals) mapped to memory,
+- Variables shared between ISRs and the main code,
+- Variables shared between multiple threads or tasks where synchronization is handled outside the compiler’s knowledge.
+
+> [!important] 
+>  При этом `volatile` **не делает доступ атомарным**, **не обеспечивает межпоточной синхронизации** и **не является memory barrier**. Он влияет только на оптимизации компилятора, а не на порядок выполнения на уровне процессора. В многопоточной среде `volatile` недостаточен без явных примитивов синхронизации.
+
+- [ ] #todo I think i need more thorough understanding on how volatile is work
+
+## Может ли быть const volatile?
+
+Да, такая запись является корректной, `const` запрещает модификацию объекта, а `volatile` запрещает компилятору кэшировать значение; каждое чтение/запись - реальный доступ к памяти.
+
+Поэтому const volatile может использоваться например для read-only регистров периферии которая должна изменяться аппаратурой, но не может изменяться в ПО:
+```c
+const volatile uint32_t* const STATUS_REG = (uint32_t*)0x40000000;
+```
+- Нельзя писать в регистр из C-кода.
+- Значение может меняться асинхронно.
+- Компилятор обязан читать из памяти при каждом обращении.
+
+## Зачем ключевое слово register?
+
+`register` используется для подсказки компилятору, что переменная используется часто и её желательно хранить в регистре процессора. Однако она не гарантирует этого, компилятор вправе игнорировать эту подсказку. 
+
+Единственное строгое последствие в C — **запрещено брать адрес такой переменной** (`&var`), поскольку объект может не иметь адресуемого представления в памяти.
+
+Единственная возможность жёстко потребовать регистр это через inline-asm.
+
+## Зачем ключевое слово restrict?
+
+Ключевое слово `restrict` используется с указателями и сообщает компилятору что объект на который указывает restrict указатель, доступен только через этот указатель(и производные от него).
+
+Это позволяет компилятору **агрессивно оптимизировать доступы к памяти**: переупорядочивать загрузки и записи, держать значения в регистрах и векторизовать код, не опасаясь скрытых зависимостей через другие указатели.
+
+`restrict` — это **контракт программиста с компилятором**. Если условие нарушено (два `restrict`-указателя фактически ссылаются на одну область памяти), поведение программы **не определено**, даже если код «работает» на конкретной сборке.
+
+- [ ] #todo Нужно лучшее понимание работы restrict
+
+## Зачем ключевое слово weak?
+
+`weak` используется для управления **разрешением символов на этапе линковки**. Символ, помеченный как weak, имеет **пониженный приоритет**: если при линковке найдено сильное (strong) определение с тем же именем, оно будет выбрано, а weak-определение проигнорировано без ошибки множественного определения.
+
+Это позволяет задавать **дефолтные реализации функций или объектов**, которые могут быть **опционально переопределены** в другом объектном файле или библиотеке, без изменения вызывающего кода.
+
+`weak` — это **не механизм языка C**, а расширение компилятора и линковщика (GCC/ELF).
+
+## Зачем в Си нужны битовые поля?
+
+```c
+struct Status {
+    unsigned ready    : 1;  // 1 бит
+    unsigned error    : 1;  // 1 бит
+    unsigned mode     : 2;  // 2 бита
+    unsigned reserved : 4;  // 4 бита
+};
+```
+
+Битовые поля в C нужны для **логического разбиения целочисленного объекта на именованные под-поля фиксированной ширины в битах**. Они позволяют напрямую моделировать компактные структуры данных, где каждый бит или группа битов имеет отдельный смысл.
+
+Основное назначение — **удобный доступ к отдельным флагам и битовым полям без ручных масок и сдвигов**, что повышает читаемость и снижает вероятность логических ошибок в коде.
+
+Однако физическое расположение битов в памяти не определено стандартом. То есть всё, что связано с физическим хранением, определяется компилятором и платформой
+
+Например, поле `unsigned a:3; unsigned b:5;` может быть упаковано так, что `a` займёт младшие 3 бита, а `b` старшие 5
+
+## Зачем в Си union?
+
+`union` — это тип данных, позволяющий **несколько разных полей разделять одну и ту же область памяти**. Размер union равен размеру **самого большого поля**, а все поля начинают с **одного и того же адреса**.
+
+Основное назначение - возможность интерпретировать одни и те же биты по-разному. То есть например в примере
+```c
+union data
+{
+    uint32_t u32;
+    uint8_t bytes[4]; 
+};
+```
+Мы можем обращаться как к полному 32 битному числу, так и обращаться к каждому байту отдельно.
+
+## Как проверить, что в числе установлен/сброшен бит?
+
+Для проверки, установлен ли конкретный бит в числе, используют побитовое И (`&`) с маской нужного бита. Если результат ненулевой, бит установлен, и условие `if` выполняется; если результат равен нулю, бит сброшен.
+
+## Как проверить, что два float числа равны между собой?
+
+Неправильно сравнивать `float` напрямую через `==` из-за ошибок округления и представления чисел. Правильный способ — проверять, что **разница по модулю меньше допустимой погрешности (epsilon)**:
+
+```c
+if (fabsf(a - b) < epsilon) {
+    // a и b считаются равными
+}
+```
+
+## В какую память попадет глобальная переменная с ключевым словом const?
+
+Переменная со словом const попадает в секцию .rodata которая находится в FLASH память. Хотя можно настроить в линкер скрипте чтобы эта секция была в RAM, но тогда загрузчик просто загрузит данные из FLASH в RAM
+
+## Какие есть способы передачи переменных в С функцию?
+
+- По значению
+    В таком случае в функцию передаётся копия переменной и изменения внутри функции не влияют на исходную переменную. Такой способ передачи используется для любых типов, в том числе структур и юнионов.
+- По указателю
+    В таком случае передаётся адрес переменной. Это позволяет функции изменять значение исходной переменной. Массивы по умолчанию передаются как указатели.
+
+
+## Есть ли способ запустить С-код до запуска main?
+
+В микроконтроллерах CPU начинает выполнять код по адресу Reset Vector. То есть точка входа задаётся в векторе прерываний - Reset Handler. И уже в этом Reset Handler после инициализации стек, обнуления секции .bss и т.д. вызывается функция main(). Поэтому можно изменить точку входу изменив указатель на Reset Handler в векторе прерываний
+
+## Зачем нужен препроцессорный error?
+
+Препроцессорная директива `#error` используется для **выдачи ошибки на этапе компиляции с пользовательским сообщением**, если выполняются определённые условия.
+
+Его назначение в проверке конфигурации на этапе препроцессора (например, определены ли нужные макросы или значения параметров).
+
+## Какое значение в локальной static переменной при первом вызове?
+
+В C локальная переменная с ключевым словом `static` **инициализируется нулём по умолчанию**, если явное значение не задано. Потому что локальная static переменная создаётся в секциях .bss или .data как и глобальные переменные, только локальные static переменные можно использовать только в этой функции
+
+## В чем недостаток inline функций?
+
+**Inline-функция** в C/C++ — это функция, для которой компилятору **даётся рекомендация вставлять её тело непосредственно в точку вызова**, вместо обычного вызова через стек.
+
+Однако компилятор может игнорировать inline - это только рекомендация. Чтобы заставить компилятор пытаться строить функцию везде где она видна используется `__attribute__((always_inline))`. Однако inline функции в любом случае не будет работать рекурсивно.
+
+Также inline функции должны быть доступны в каждой единице трансляции, где она вызывается.
+
+## Зачем нужен оператор препроцессора?
+
+Оператор препроцессора `#` используется для **директив компиляции на этапе препроцессинга**, то есть **до компиляции основного C-кода**.
+
+Основные цели:
+1. **Условная компиляция**: `#if`, `#ifdef`, `#ifndef`, `#else`, `#elif`, `#endif` позволяют включать или исключать части кода в зависимости от макросов или значений.
+2. **Включение файлов**: `#include` вставляет содержимое другого файла прямо в код.
+3. **Определение макросов**: `#define` создаёт именованные константы или макросы с аргументами.
+4. **Генерация ошибок**: `#error` останавливает компиляцию с сообщением.
+5. **Строковое преобразование и конкатенация**: `#` и `##` в макросах позволяют превращать аргументы в строки или соединять токены.
+```c
+#define STR(x) #x
+printf("%s\n", STR(HELLO));  // выведет "HELLO"
+
+#define CONCAT(a, b) a##b
+
+int xy = 10;
+int main() {
+    int val = CONCAT(x, y); // раскрывается как int val = xy;
+}
+```
+
+## Как делать примитивы инкапсуляции в C?
+
+Можно воспользоваться особенностью процесса компиляции, который может нам добиться инкапсуляции.
+
+Для этого нужно в .h файле объявить структуру без полей
+```c title:Box.h
+struct Box_;
+
+typedef struct Box_ Box;
+```
+
+Структура Box_ не содержит полей. Поэтому при компиляции, когда мы подключим файл Box.h к нашему проекту, к полям структуры обратиться будет нельзя. В файле Box.c доопределим эту структуру:
+```c title:Box.c
+struct Box_ {
+        uin32_t depth;
+        uint32_t height;
+        uint32_t width;
+};
+```
+
+Поля структуры Box_ теперь видны только в файле Box.c. Функции, описанные в Box.c будут видеть поля структуры и иметь доступ до них, в остальных файлах доступа до полей не будет. Так как функции определены по умолчанию как extern (если, конечно, они не определены явно как static), все функции будут доступны извне. Таким образом, доступ до всех полей будет осуществляться через функции, которые уже будут проверять корректность введённых данных.
+
+Тогда в Box.h будут объявления функции для получения и задания полей:
+```c title:Box.h
+#ifndef _BOX_H_ 
+#define _BOX_H_   
+
+#define MAX_HEIGHT 10000
+#define MAX_WIDTH  10000 
+#define MAX_DEPTH  10000   
+
+struct Box_;   
+typedef struct Box_ Box;   
+
+Box* createBox(uint32_t, uint32_t, uint32_t);   
+
+void setHeight(Box*, uint32_t); 
+void setDepth(Box*, uint32_t); 
+void setWidth(Box*, uint32_t); 
+uint32_t getHeight(Box*); 
+uint32_t getWidth(Box*); 
+uint32_t getDepth(Box*); 
+uint32_t getVolume(Box*);   
+
+#endif
+```
+
+А в Box.c будут уже определения для таких функций
+```c title:Box.c
+
+#include "Box.h"
+
+struct Box_ {
+    uint32_t depth;
+    uint32_t height;
+    uint32_t width;
+};
+
+Box* createBox(uint32_t depth, uint32_t height, uint32_t width)
+{
+    Box*  box_instance = 
+            (Box*)malloc(sizeof(Box));
+    box_instance.depth = depth;
+    box_instance.height = height;
+    box_instance.width = width;
+    
+    return box_instance;
+}
+
+uint32_t setHeight(Box* this_, uint32_t height) 
+{
+    this_->height = height;
+}
+
+uint32_t setWidth(Box* this_, uint32_t width) 
+{
+    this_->width = width;
+}
+
+uint32_t setDepth(Box* this_, uint32_t depth) 
+{
+    this_->depth = depth;
+}
+
+uint32_t getHeight(Box* this_) 
+{
+    return this_->height;
+}
+
+uint32_t getWidth(Box* this_) 
+{
+    return this_->width;
+}
+
+uint32_t getDepth(Box* this_) 
+{
+    return this_->depth;
+}
+
+uint32_t getVolume(Box* this_) 
+{
+    return this_->depth * this_->height * this_->width;
+}
+
+```
+
+Единственная проблема невозможно сделать некоторые поля в объекте публичными, они все будут приватными, потому что код не должен знать какие поля расположены в структуре Box
+
+## Какие знаешь адекватные правила MISRA 2004 или MISRA 2012
+
+- Запрещены неявные преобразования, приводящие к потере данных
+- Запрещены приведения между несовместимыми типами указателей
+- Каждый `if`, `for`, `while` должен иметь фигурные скобки(даже для одной строки)
+- Запрещён `goto`
+- Все `switch` должны иметь `default`, даже если он пустой
+- Один побочный эффект на выражение
+- Запрещено сравнение `float` на точное равенство.
+ 
+## Как делать примитивы полиморфизма в С?
+
+Его можно имитировать через структуры с укзателями на функции. Это называется структуры с виртуальными таблицами.
+
+Идея такая:
+- Структура содержит указатели на функции(интерфейс).
+- Разные наследующие классы могут иметь свои реализации функции, но код работает через общие указатели
+
+```c title:shape.h
+
+typedef struct {
+    void (*draw)(Shape*);
+    double (*area)(Shape*);
+} ShapeVTable;
+
+typedef struct
+{
+    ShapeVTable* vtable;
+} Shape;
+
+```
+
+```c title:circle.h
+#include "shape.h"
+
+typedef struct {
+    Shape base;
+    double radius;
+} Circle;
+
+void Circle_draw(Shape* s) {
+    Circle* c = (Circle*)s;
+    printf("Drawing circle with radius %.2f\n", c->radius);
+}
+
+double Circle_area(Shape* s) {
+    Circle* c = (Circle*)s;
+    return 3.14159 * c->radius * c->radius;
+}
+
+// ВАЖНАЯ ЧАСТЬ! Здесь мы определяем для ShapeVTable какие
+// будут реализации виртуальных функций
+ShapeVTable circleVTable = { Circle_draw, Circle_area };
+
+Circle* Circle_create(double r) {
+    Circle* c = malloc(sizeof(Circle));
+    c->base.vtable = &circleVTable;
+    c->radius = r;
+    return c;
+}
+
+```
+
+```c title:main.c
+#include "circle.h"
+
+int main() {
+    Shape* s = (Shape*)Circle_create(5.0);
+    s->vtable->draw(s);
+    printf("Area = %.2f\n", s->vtable->area(s));
+}
+```
+
+- [ ] #todo Лучше разобраться с тем как работает полиморфизм, пока не очень понятно
+
+## Напишите функцию, которая при передаче по аргументу значения 1 печатает "One". При передаче 2 печатает "Two". Запрещено использовать оператор if и оператор switch.
+
+Можно использовать массив:
+```c
+void print_number_str(uint8_t number)
+{
+    char* array_str_numbers[] = {NULL, "One", "Two"};
+    printf("%s\n", array_str_numbers[number]);
+}
+```
+
+## Напишете одной строчкой установку значения 0x11223344 по абсолютному адресу 0x20000016.
+
+```c
+*((volatile uint32_t*)0x20000016)  = 0x11223344;
+```
+
+volatile uint32_t* - указывает компилятору **не оптимизировать доступ**, т.к. это память устройства/регистра.
+
+- [ ] #todo Это наверное вопрос на засыпку связанный с тем что адрес не выровнен из-за чего может быть hardFault. Поэтому лучше дополнительно разобраться
+
+## Может ли С функция во время исполнения определить, что ее вызвали рекурсивно?
+
+Можно использовать статический флаг либо счётчик
+```c
+void f(int n) {
+    static int in_call = 0;
+
+    if (in_call) {
+        printf("Рекурсивный вызов!\n");
+        return;
+    }
+
+    in_call = 1;
+    printf("Первый вызов: %d\n", n);
+
+    if (n > 0) f(n - 1);
+
+    in_call = 0;
+}
+
+void f(int n) {
+    static int depth = 0;
+    depth++;
+
+    if (depth > 1) printf("Рекурсивный вызов, глубина %d\n", depth);
+
+    if (n > 0) f(n - 1);
+
+    depth--;
+}
+```
+
+- [ ] #todo Такой вариант не потокобезопасен если несколько задач исползьзуют одну и ту же функцию, можно использовать thread-local storage и __thread атрибут. Нужно разобраться с этим моментом подробнее
+
+## Может ли C функция с переменным числом аргументов узнать сколько у нее аргументов?
+
+- [ ] #todo Я совсем в этом вопросе не разбирался
+
+## Назови три способа вернуть массив из функции.
+
+1. Вернуть массив static
+    Мы создаём статический массив в функции и возвращаем указатель на этот массив
+    ```c
+    int* getArray() {
+        static int arr[5];
+        // инициализация
+        return arr;
+    }
+    ```
+    Проблема только в том что массив общий для всех вызовов, из-за этого функция становится не потокобезопасной
+2. Вернуть динамический массив
+    Мы динамически выделяем память и возвращаем указатель на эту выделенную память
+    ```c
+    int* getArray() {
+        int* arr = malloc(5 * sizeof(int));
+        // инициализация
+        return arr;
+    }
+    ```
+    Выделенная память должна быть освобождена вручную через функцию free()
+3. Использовать структуру с массивом
+    В случае использовании структуры мы будем копировать всё содержимое массивов при возврате
+    ```c
+    typedef struct{
+       int arr[3];
+    }array_struct;
+    
+    array_struct getArray() {
+        array_struct arr_struct;
+        
+        arr_struct.arr[0] = /*...*/;
+        arr_struct.arr[1] = /*...*/;
+        arr_struct.arr[2] = /*...*/;
+        
+        return arr_struct;
+    }
+    ```
+    Может быть дорого по памяти или по времени, так как мы копируем целиком.
+
+## Зачем используют do... while(0); если это всего лишь 1 итерация?
+
+В Си часто используют эту конструкцию для использования многострочного макроса. Потому что многострочные макросы могут использоваться в блоках типа if else.
+И если у нас есть код
+```c
+
+#define MACRO(a) foo(a); bar(a);
+
+int main()
+{
+    if (cond)
+        MACRO(x);
+    else
+        something_else();
+
+    return 0;
+}
+
+```
+
+То мы после предпроцессора получим код:
+```c
+int main()
+{
+    if (cond)
+        foo(x); bar(x);  // bar(x) уже не под if!
+    else // вызовется ошибка потому что мы вышли из if после выполнения foo()
+        something_else();
+
+    return 0;
+}
+```
+
+Поэтому оборачивая макрос в `do {...} while(0);` в случае использовании макроса в if операторе будет разворачиваться как один оператор и всё будет выполняться корректно. То есть `do {...} while(0);` - это **техника безопасности**, чтобы макрос вел себя как единый оператор в любых конструкциях.
+
+## Как упаковать структуру в компиляторе GCC
+
+Это можно сделать с помощью атрибута packed
+```c
+__attribute__((packed)) struct {
+    uint32_t var1;
+    uint16_t var2;
+    float var3;
+};
+```
+
+По умолчанию компилятор:
+- выравнивает каждое поле по его естественной границе (например, `uint32_t` по 4 байтам),
+- вставляет padding,
+- выравнивает весь объект структуры.
+
+`packed` говорит компилятору:
+- не вставлять padding между полями,
+- не гарантировать выравнивание полей,
+- размещать данные байт-в-байт в порядке объявления.
+
+```c
+struct Normal {
+    uint8_t  a;   // offset 0
+    uint16_t b;   // offset 2 (1 байт padding)
+    uint32_t c;   // offset 4
+};                // sizeof = 8
+
+struct __attribute__((packed)) Packed {
+    uint8_t  a;   // offset 0
+    uint16_t b;   // offset 1
+    uint32_t c;   // offset 3
+};                // sizeof = 7
+```
+
+## Зачем нужны упакованный структуры кроме экономии RAM памяти?
+
+Это может понадобится для отправки, или приёма данных из протокала например CAN, UART и т.д. Ведь упакованные структуры нужны в первую очередь для точного контроля бинарного расположения полей. 
+
+Также например структуры которые записываются в файл или EEPROM nоже должны быть согласованы по байтам с внешним форматом. 
+
+## Есть константный Си-массив структур, который формируется препроцессором (cpp.еxe) до компиляции gcc из разных файлов проекта. Как проверить во время компиляции (до исполнения кода), что в финальном массиве структур нет повторяющихся элементов?
+
+- [ ] #todo Найти ответ на этот вопрос
+
+### Минусы и опасности
+
+1. **Невыровненный доступ**
+    - На ARM доступ к `uint32_t` по невыравненному адресу может:
+        - работать медленно,
+        - выполняться через несколько операций,
+        - вызвать `HardFault` (в зависимости от ядра и настроек).
+2. **Падение производительности**
+    - Компилятор генерирует более сложный код.
+3. **Не переносимо**
+    - Layout зависит от компилятора, ABI и endianness.
+    - `packed` ≠ гарантия межплатформенной совместимости.
+4. **Нельзя безопасно кастить указатели**
+
+*** 
+
+# Структуры данных
+
+## Чем циклический буфер отличается от FIFO?
+
+FIFO — структура данных, где элементы читаются **в том порядке, в котором были добавлены**. В простейшей реализации обычно используется **один указатель** на «голову»: добавление идёт в конец, чтение — с начала. После чтения указатель сдвигается, и доступ возможен только к следующему элементу в порядке очереди. В FIFO заполненность достигается если мы заняли весь размер FIFO.
+
+**Циклический буфер (ring buffer)** — это разновидность FIFO, реализованная на фиксированном массиве с **двумя указателями**: `head` (чтение) и `tail` (запись). При добавлении `tail` продвигается к следующей позиции, при чтении — `head`. Когда указатели достигают конца массива, они «оборачиваются» в начало, создавая **зацикленную память**. Буфер считается полным, когда `tail` догоняет `head`.
+
+## Как удалить элемент из связанного списка не зная указателя не предыдущий элемент?
+
+Односвязный список (`struct Node { int val; Node* next; };`) хранит только указатель на следующий элемент. Чтобы удалить элемент `curr`, обычно нужен `prev`, чтобы сделать:
+```c
+prev->next = curr->next;
+free(curr);
+```
+Если `prev` неизвестен, прямого безопасного способа нет, **потому что нельзя изменить ссылку предыдущего элемента**.
+
+Можно скопировать данные следующего элемента в текущий и удалить следующий. Но такой способ не подходит для последнего элемента
+```c
+void deleteNode(Node* node) {
+    if (node == NULL || node->next == NULL) return; // последний элемент нельзя удалить
+    Node* tmp = node->next;
+    node->val  = tmp->val;
+    node->next = tmp->next;
+    free(tmp);
+}
+```
+***
+
+# Про прерывания
+
+## Что такое прерывание?
+
+Прерывания это вызываемое аппаратно событие, которое временно приостанавливает выполнение основной программы и передаёт управление специальной функцией - обработчику прерывания.
+
+Прерывания могут быть аппаратными(т.е. от сигнала периферии) или программными(генерируется кодом).
+
+Мы можем настраивать при каких условиях будет происходить прерывание, изменять приоритет и изменять обработчик.
+
+После завершения ISR управление возвращается в точку прерывания, и программа продолжается с того места, где была прервана.
+
+## Зачем нужны программные прерывания? Можно ведь просто функцию вызвать
+
+Программные прерывания могут быть нужны для использования привилегированного режима, для вызова системных функций. 
+
+В RTOS они позволяют пользовательскому коду обращаться к ядру без прямого доступа к внутренним структурам, обеспечивая **изоляцию ядра и защиту ресурсов**. В Cortex-M4 есть **PendSV** прерывание которое используется для переключения контекста ядром и **SVCall** для вызова системных функций ядра RTOS из пользовательского кода (например, создание задач, работа с очередями).
+
+Кроме того, программные прерывания дают возможность **планировать выполнение функций как событий**, с учётом приоритета прерываний и контекста выполнения, что обычный вызов функции не обеспечивает.
+
+## Что такое реентерабельная функция?
+**Реентерабельная функция** — это функция, которую можно **безопасно вызвать повторно до завершения предыдущего вызова**, даже если предыдущий вызов ещё выполняется, **не опасаясь нарушения данных или состояния программы**.
+
+### Основные свойства:
+1. **Не использует глобальные или статические переменные** без защиты.
+2. **Не модифицирует общие ресурсы** напрямую или использует механизмы синхронизации.
+3. **Работает только с аргументами, переданными через стек или через локальные переменные**.
+4. **Не зависит от состояния предыдущих вызовов** (например, errno, глобальные буферы — только если локальные копии).
+
+
+## Сколько тактов процессора нужно для запуска возникшего прерывания на Cortex-M4?
+
+В Cortex-M4 reference manual написано что нужно максимум 12 тактов начиная с появления прерывания до выполнения первой операции обработчика прерываний.
+
+Эти такты нужны для сохранение контекста выполнения программы перед появления прерывания. В Cortex-M4 NVIC автоматически сохраняет часть регистров, формируя stack frame, чтобы после завершения обработчика можно было восстановить контекст прерванного кода. Этот кадр стека содержит регистры **R0–R3, R12, LR, PC и xPSR**
+
+## Сколько тактов процессора нужно для вызова функции?
+
+Зависит от того сколько используется аргументов в функции. Потому что первые 4 аргумента хранятся в регистрах R0-R3, остальные уже в стеке. 
+
+Мы должны расположить все аргументы в эти регистры/стек. После подготовки аргументов используется команда **`BL` (Branch with Link)** для перехода в функцию и сохранения адреса возврата. На Cortex-M4 выполнение `BL` занимает **1–3 такта** в зависимости от условий pipeline.
+
+## Что такое таблица прерываний?
+
+Таблица векторов прерываний — это структура данных, которая хранится в памяти и содержит **адреса начала обработчиков прерываний (ISR)**. Когда происходит прерывание, процессор приостанавливает текущий поток выполнения, сохраняет необходимый контекст, затем выбирает из таблицы запись, соответствующую произошедшему прерыванию, и переходит по этому адресу.
+
+ISR **не может принимать параметры и возвращать значения**.
+
+Таблица векторов может находиться в **FLASH или RAM**. Например, в STM32 по умолчанию таблица векторов начинается с адреса `0x00000000`. Однако с помощью регистра `SCB->VTOR` можно **перенести таблицу в другое место**, задав смещение от базового адреса. Этот регистр отвечает за **смещение базового адреса таблицы векторов**, позволяя, например, использовать RAM как начало таблицы.
+
+## Каков алгоритм обработки прерываний? Что происходит во время срабатывания прерывания?
+
+Когда вызывается прерывание сначала заканчивается выполнение последней ассемблерной операции из основного кода. Затем МК автоматически сохраняет контекст вызова, то есть сохраняет основные регистры, чтобы затем можно было благополучно вернуться к основной программе.
+
+Затем МК смотрит в таблицу прерываний на соответствующий указатель обработчика для случившегося прерывания и выставляет этот адрес обработчика в регистр PC.
+
+При возврате из прерывания МК восстанавливает контекст выполнения программы, в том числе возвращает регистр PC чтобы продолжить выполнение с места прерывания 
+
+## Что такое вектор прерываний?
+**Вектор прерываний** — это **конкретная запись в таблице прерываний**, которая содержит **адрес обработчика (ISR) для одного источника прерывания**.
+
+Когда возникает прерывание, процессор использует этот вектор, чтобы **определить, куда передать управление**.
+
+## Какие есть внутренние прерывания?
+
+Основные внутренние прерывания Cortex‑M4:
+1. **Reset** — сброс микроконтроллера.
+2. **NMI (Non-Maskable Interrupt)** — немаскируемое прерывание высокой важности.
+3. **HardFault** — аппаратная ошибка (деление на ноль, некорректный доступ к памяти и т.д.).
+4. **MemManage (MPU Fault)** — ошибка управления памятью (Memory Protection Unit).
+5. **BusFault** — ошибка шины (ошибки при обращении к памяти или периферии).
+6. **UsageFault** — ошибка использования инструкций (например, некорректная инструкция, unaligned access).
+7. **SVCall (SVC)** — программное прерывание для вызова системных функций.
+8. **DebugMonitor** — используется для отладки.
+9. **PendSV** — отложенное прерывание, используется ядром RTOS для переключения контекста.
+10. **SysTick** — таймер системного тикера, генерирует периодическое прерывание.
+
+## Как регистр программного счетчика PC узнает куда возвращаться после обработки прерывания?
+
+При входе в прерывание МК аппаратно сохраняет контекст вызова в том числе регистр PC, а затем уже переходит в обработчик. После выхода из обработчика МК восстанавливает контекст вызова и точно также возвращает значение регистра PC, что возвращает выполнение программы с того места где вызвалось прерывание.
+
+# Basic Questions
+
+## What is an Embedded System
+An embedded system is a computer system designed to perform a dedicated function within a larger mechanical or electrical system. It generally has a microprocessor or microcontroller at its core, along with memory and I/O devices, and runs embedded software designed specifically for the system.
+
+
+# Top 50 strict questions
+
+## What is the size of an integer, character, double and float?
+
+In C, the sizes of `int`, `char`, `float`, and `double` are implementation-defined, but the standard guarantees some minimums. `sizeof(char)` is always 1, but the number of bits in a `char` is given by `CHAR_BIT` in `<limits.h>`. Its value is generated by the compiler based on the **target architecture’s ABI**. But ANSI C specification require CHAR_BIT >= 8.
+
+> [!help] 
+>  ABI = Application Binary Interface
+>  It is the **set of rules** that defines how compiled code interacts at the binary level on a given platform.
+>  Think of it as the _binary contract_ between:
+>  - the **compiler** (how it generates code),
+>  - the **assembler/linker** (how it places that code in memory),
+>  - the **operating system / firmware** (how functions, syscalls, and libraries are invoked),
+>  - and the **hardware** (register usage, instruction set, alignment, endianness).
+
+The C standard guarantees that int is least 16 bits, long is at least 32 bits and long long is at least 64 bits. In x86-64 and ARM Cortex-M it’s 32 bits. `float` is typically a 32-bit IEEE-754 single precision, and `double` is typically a 64-bit IEEE-754 double precision, but Cortex-M4 doesn't support double precision in his FPU, so double arithmetic is software-emulated and much slower.
+
+## What is the size of the pointer? What is the size of integer pointer, float pointer and character pointer?
+
+A pointer stores the address of an object in memory; its size depends on the addressing scheme of the target architecture.
+Size of pointers varies with architecture. More precisely, it depends on the size of the addresses in the **address space of the architecture** (physical or virtual). In most modern ABIs, all data pointers have the same size, but the C standard allows them to differ.
+
+Function pointers are consistent within themselves (all function pointers have the same size), but their size may differ from data pointers depending on architecture. On Harvard architectures, code and data space are separate, so function pointers may be different than data pointers. On von Neumann architecture code and data space are connected, so only in systems with von Neumann architecture we will have same size of function and data type pointer.
+
+For example in Cortex-M4 that use von Neumann architecture data and function pointers have 32 bits size.
+
+> [!question] 
+> Q: Does pointer size depend on physical memory size?
+> A: No. It depends on the architecture’s address space. A Cortex-M4 might only have 1 MB of RAM+Flash, but the pointer is still 32 bits because the architecture defines a 4 byte address space.
+> Q: How can you check pointer size?
+> A: also with sizeof(void*) or sizeof(int*)
+
+## What is a Pointer
+
+A pointer is a variable that stores the **memory address** of another object or function. Pointers allow indirect access to data, dynamic memory management, and efficient array or structure manipulation. In C, the size of a pointer depends on the target architecture and ABI, not the type it points to.
+
+Pointers also have a type, type tells the compiler:
+1. How many bytes to read or write when dereferencing `*ptr`
+2. How pointer arithmetic behaves. In C, when you add an integer to a pointer, the compiler **automatically scales the addition by the size of the type the pointer points to**.(for `T` type of ptr, `ptr + 1` does not add 1 byte; it adds sizeof(T)).
+3. If you try to assign a pointer of one type to another **without a cast**, the compiler usually gives a **warning**.
+  But using a cast suppresses the warning
+
+## What is a void pointer? What is its limitation?
+
+`void*` pointers is a typeless pointer. You can assign any data pointer to a `void*` without a cast. To dereference a `void*`, you must cast it back to a concrete type.
+
+```c
+void* pv;
+int a = 5;
+pv = &a;
+int* pi = (int*)pv;
+int val = *pi;
+```
+
+## What is a NULL pointer
+
+A NULL pointer is a special pointer that is guaranteed **not to point to any valid object or function**! It defined in stddef.h and defined as ((void*)0). Dereferencing a NULL pointer is undefined behavior. The actual internal representation of a NULL pointer is implementation-defined and may or may not correspond to the literal memory address 0.
+
+The standard only guarantees that **comparing it with any pointer to object or function will behave as a pointer that is guaranteed not to point to any valid object**.
+
+A NULL pointer serves as a sentinel value to indicate that a pointer is not pointing to any valid object. It can indicate the end of the lists. Using NULL allows safe checks before dereferencing, preventing undefined behavior and crashes.
+
+## What is ISR
+
+ISR is expanded as Interrupt Service Routine. It is a special function executed in response to a hardware or software interrupt.
+
+Interrupt vector table is a data structure stored in memory that contains the starting addresses of the ISRs. When an interrupt occurs, the processor suspends the current execution flow, saves the necessary context, CPU fetches the corresponding to occurred interrupt entry from this table and branches to that address.
+
+An ISR cannot take parameters or return values.
+
+Vector table can be in FLASH or RAM. For example in stm32 by default vector table is starts at 0x00000000. But you can use register SCB->VTOR to relocate interrupt vector table. SCB->VTOR responsible of vector table base offset. So you can use offset to start address of SRAM.
+
+- [ ] #todo Figure out how to change the address for the interrupt vector table
+
+## What is Latency? What is interrupt latency?
+
+Latency is the delay between a stimulus and response. Interrupt latency is the time from when an interrupt request is signaled until the CPU begins executing the first instruction of the ISR. On Cortex-M, this includes finishing the current instruction, priority resolution, fetching the ISR address from the vector table and automatic context saving.
+
+## What is nested interrupt
+
+**Nested interrupts** occur when an interrupt is interrupted by another interrupt of **higher priority** before the first ISR has finished executing. The CPU saves the context of the first ISR, executes the higher-priority ISR, and then restores the first ISR when the second finishes. They are useful for reducing latency of critical events but require careful stack management and reentrant-safe ISR code.
+
+## What is Inline function
+An **inline function** in C/C++ is a function for which the compiler is **advised** to insert the function’s body directly at each call site, instead of performing a normal function call.
+
+It is useful in embedded systems for small, frequently called functions
+
+> [!important] 
+>  `inline` is a **request to the compiler**, not a command. The compiler may ignore it.
+>  Compiler can inline even non-`inline` functions.
+>  And of course compiler may refuse inline recursive functions.
+>  Inline functions must be visible to every translation unit that uses them.
+
+But in gcc there are function attribute always_inline that **forces the compiler to inline the function** wherever it is called, if the function is visible at the call site, typically defined in the same translation unit or in a header. Even then, certain limitations exist, e.g., recursion or very large functions.
+
+## What is static
+
+### Inside a function
+Normally, a local variable is created on the stack when the function is called, destroyed when it returns.
+Normally, a local variable inside a function is created on the stack when the function is called and destroyed when it returns. Declaring it `static` changes its **storage duration** to **static storage**, so its lifetime persists for the **entire program execution**.
+**Uninitialized static variables** are placed in the `.bss` section, and **initialized static variables** go in the `.data` section of RAM as a global variables. But unlike variables, the **scope of a static local variable is limited to the function**, so it cannot be accessed outside.
+
+### static at file/global scope
+Normally, global variables and functions have **external linkage**: visible to other translation units. Declaring them `static` gives **internal linkage**: visible **only within the translation unit (source file)**.
+
+Prevents symbol conflicts when multiple files define functions/variables with the same name.
+
+## What is Static Linking
+**Static linking** is the process where all the **object code of a program and the libraries it uses** are combined by the linker **into a single executable file** at compile time.
+
+Compilation:
+```bash
+gcc -c main.c       // produces main.o
+gcc -c utils.c      // produces utils.o
+```
+Static linking:
+```bash
+gcc main.o utils.o -o app.exe
+```
+
+Static linking increases **firmware size** because all required library functions are included. But linkers can perform **dead code elimination** (remove unused functions) to reduce size.
+
+## What is Dynamic Linking
+**Dynamic linking** is the process where **library code is not included in the executable at compile time**. Instead, the program **references external shared libraries**, which are **loaded and linked at runtime** by the operating system.
+Executable contains **stubs or references** to functions in the shared library.
+
+Most **bare-metal MCUs cannot use dynamic linking** because:
+- No operating system loader
+- Limited RAM/flash
+- No filesystem to store shared libraries
+It may appear in embedded Linux or other OS-based environments.
+
+## What is a near pointer
+A **near pointer** is a pointer that **only contains the offset within a single memory segment**, not the full address.
+
+For example in 16-bit segmented memory:
+Physical address = `segment << 4 + offset` so full address length is 20 bits.
+Segment should be known for program(usually current data/code segment), so pointers stores only offset. 
+
+Near pointers cannot be used to access memory outside their segment
+
+## What is a dangling pointer?
+
+# RTOS questions
+
+- [ ] #todo Мне ещё предстоит это всё выучить...
+
+## What is REAL TIME? What is Real Time OS
+A system is real-time if it is guarantee that events and jobs are processed within **a specified maximum time**(deadlines). Real-time systems define maximum allowed response time for events.
+
+A **Real-Time Operating System (RTOS)** is an OS designed to **support real-time requirements**, deterministic scheduling, predictable interrupt handling, and inter-task communication so that tasks meet their deadlines reliably.
+
+- Tasks or threads are executed according to **priority and deadlines**, not just fairness.
+- Efficient ISR execution with minimal and predictable **interrupt latency**.
+- Provides semaphores, mutexes, message queues, event flags.
+- Kernel operations (context switch, scheduling) must be **fast and predictable**.
