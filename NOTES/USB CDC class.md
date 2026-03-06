@@ -1,4 +1,4 @@
-Tags: #periferal_interface 
+Tags: #periferal_interface #usb
 > [!sources] 
 >  USB complete the developer's guide by Jan Axelson Fifth edition 7 Chapter
 >  Serial Port Complete by Jan Axelson 16 chapter

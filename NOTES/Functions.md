@@ -86,7 +86,11 @@ So now we have two explicit function graph of which we can draw on the plane. If
 Если функция $\color{green} f:X \to Y$ является bijection, то есть surjection и injection одновременно, то такой функции можно сделать inverse function $\color{} f^{-1}: Y \to X$
 ![[Pasted image 20250703145650.png|400]]
 
-Собственно всё что нужно чтобы перевести в inverse function, это нужно решить функцию $y=f(x)$ относительно x, то есть так что $x=f^{-1}(y)$. Например
+Собственно всё что нужно чтобы перевести в inverse function, это нужно решить функцию $y=f(x)$ относительно x, то есть так что $x=f^{-1}(y)$.
+> [!note] 
+> In other words, if you apply f to some number and get the output y and then you pass y through $f^{-1}$, the output will be x again. The inverse function $f^{-1}$ undoes the effects of the function f.
+
+Например
 
 $$y=2x+3$$
 $$x=\frac{1}{2}y-\frac{3}{2}$$
@@ -96,6 +100,18 @@ $$x=\frac{1}{2}y-\frac{3}{2}$$
 ![[Pasted image 20250703150554.png|400]]
 
 Как можно заметить $f(x)$ и $f^{-1}(x)$ симметричны относительно прямой y=x.
+
+## В чём плюс inverse functions
+
+Возможность использовать inverse functions являются очень полезной возможностью при решении уравнений. Представим что у нас есть уравнение:
+$$f(x) = c$$
+Где f - какая-то функция и c какая-то константа. Для решения уравнения нам нужно изолировать неизвестную x с одной из сторон уравнения. Однако в данном случае нам мешает это сделать функция f.
+Но если мы воспользуемся inverse function $f^{-1}$ мы отменим эффект вызванный f на неизвестную x. В таком случае мы можем применить inverse function на обоих сторонах функции:
+$$f^{-1}(f(x)) = f^{-1}(c)$$
+
+По определению inverse function выполняет обратное действия для функции f поэтому вместе inverse function и функция отменяют друг друга. Тогда $f^{-1}(f(x)) = x$, а значит
+
+$$x = f^{-1}(c)$$
 
 # Composition of functions
 

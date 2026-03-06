@@ -1,4 +1,4 @@
-Tags: #linux #arch
+Tags: #linux
 ## Nvidia-optimus
 1) sudo pacman -S nvidia
 2) sudo pacman -S optimus-manager

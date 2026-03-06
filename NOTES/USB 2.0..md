@@ -1,4 +1,4 @@
-<span style="color:rgb(255, 0, 0)"></span>Tags: #embedded 
+Tags: #embedded #usb  
 
 > [!attention] 
 > [Bad English](https://www.youtube.com/watch?v=Ka2ucZ1Bwyc) 
@@ -177,11 +177,11 @@ Endpoint size is determined by field in [descriptor](#Descriptors): bMaxPacketSi
 But! Despite the fact that you can set endpoint maximum packet size from 0 to 1024, Endpoint size has restrictions that depend on [transfer type](#Types%20of%20transfers) of endpoint and speed of endpoint. You should choose endpoint size with regard to maximum packet limits of each transfer type:
 1. [[#Control Transfer]]
 	- low-speed: only 8 bytes
-	- high-speed: may be 8, 16, 32, 64 bytes
-	- full-speed: only 64 bytes
+	- full-speed: may be 8, 16, 32, 64 bytes
+	- high-speed: only 64 bytes
 2. [[#Bulk Transfer]]
-	- high-speed: may be 8, 16, 32, 64 bytes
-	- full-speed: only 64 bytes
+	- full-speed: may be 8, 16, 32, 64 bytes
+	- high-speed: the maximum packet size 512 bytes
 3. [[#Interrupt Transfer]]
 	- low-speed: from 1 to 8 bytes
 	- full-speed: from 1 to 64 bytes
@@ -623,7 +623,7 @@ A frame(microframe) intervals for full-speed(high-speed) intervals is defined in
 
 > [!important] 
 > Before selecting a device configuration that consumes isochronous bandwidth, the host controller determines whether the requested bandwidth is available by comparing the available unreserved bus bandwidth with the maximum packet size and transfer rate of the configuration’s isochronous endpoint(s). 
-> For example, to show how bandwidth-hungry isochronous transfer is, A full-speed transfer with the maximum 1023 bytes per frame uses 69%(funny number) of the bus’s bandwidth.
+> For example, to show how bandwidth-hungry isochronous transfer is, A full-speed transfer with the maximum 1023 bytes per frame uses 69%[(funny number)](https://www.youtube.com/watch?v=lcsXGHl_hwg) of the bus’s bandwidth.
 > To cope with this problem USB 2.0. specification require device to configure full- or high-speed isochronous endpoint with no requested bandwidth in default interface, so the host can configure device at moment of plugging. In addition to this interface and an interface that requests the optimum bandwidth for a device, a device can have alternate interface that have smaller isochronous data packets or use fewer isochronous packets per microframe. 
 > So after initial [[#Enumeration]] the device driver is then free to try to increase the endpoint’s reserved bandwidth by requesting alternate interface settings or configurations.
 

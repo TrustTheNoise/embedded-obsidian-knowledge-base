@@ -1,0 +1,7 @@
+views:
+  - type: table
+    name: Table
+    filters:
+      and:
+        - categories.contains(link("Electronics#Motors"))
+        - file.inFolder("NOTES")

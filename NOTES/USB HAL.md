@@ -1,4 +1,4 @@
-Tags: #stm32 #HAL #periferal_interface 
+Tags: #stm32 #HAL #periferal_interface #usb
 
 > [!attention] 
 > Для понимания данного текста нужно понимать сам протокол [[USB 2.0.]] 

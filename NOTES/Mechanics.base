@@ -1,0 +1,14 @@
+views:
+  - type: table
+    name: Table
+    filters:
+      and:
+        - categories.contains(link("Physics#Kinematics"))
+        - file.folder == "NOTES"
+    order:
+      - file.name
+      - categories
+    columnSize:
+      file.name: 214
+  - type: table
+    name: View
