@@ -1,7 +1,0 @@
----
-categories:
----
-
-
-# Mechanics
-![[Mechanics.base]]
