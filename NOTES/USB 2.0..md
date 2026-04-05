@@ -290,7 +290,7 @@ PID(Packet ID) - identify the type of packet that is being sent.
 
 There are 4 bits to the PID, however to insure it is received correctly, the 4 bits are inverted and repeated, making an 8 bit PID in total in each USB packet.
 
-| $PID_0$   | $PID_1$ | $PID_2$ | $PID_3$ | $\overline{PID_0}$ | $\overline{PID_1}$ | $\overline{PID_2}$ | $\overline{PID_3}$ |
+| $P I D_(0)$   | $P I D_(1)$ | $P I D_(2)$ | $P I D_(3)$ | $overline P I D_(0)$ | $overline P I D_(1)$ | $overline P I D_(2)$ | $overline P I D_(3)$ |
 |--|--|--|--|--|--|--|--|
 
 There are table of all PIDs. All of this PIDs will be described below in describing all packets
@@ -619,7 +619,7 @@ Examples of uses for isochronous transfers include encoded voice and music to be
 
 Isochronous means equal in duration to something, has the same in duration with something. So isochronous means that the data has a fixed transfer rate, with a defined number of bytes transferring in every frame or microframe. None of the other transfer types is guarantee bandwidth for a specific number of bytes in each frame (except interrupt transfers with the shortest maximum latency).
 
-A frame(microframe) intervals for full-speed(high-speed) intervals is defined in bInterval field of endpoint descriptor and calculates as $2^{\text{bInterval-1}}$ frames(microframes). Of course you can also send three transactions per this interval only for high-speed(it is configurable in wMaxPacketSize).
+A frame(microframe) intervals for full-speed(high-speed) intervals is defined in bInterval field of endpoint descriptor and calculates as $2^("bInterval-1")$ frames(microframes). Of course you can also send three transactions per this interval only for high-speed(it is configurable in wMaxPacketSize).
 
 > [!important] 
 > Before selecting a device configuration that consumes isochronous bandwidth, the host controller determines whether the requested bandwidth is available by comparing the available unreserved bus bandwidth with the maximum packet size and transfer rate of the configuration’s isochronous endpoint(s). 
@@ -636,11 +636,11 @@ A frame(microframe) intervals for full-speed(high-speed) intervals is defined in
 Within a transfer, the packet size of data in each transaction doesn't have to be the same. 
 
 > [!example] 
-> For example, if we have audio stream with 44100 sampling frequency, then we should send 44100 samples every second. On full speed we have 1000 frames in a second. So we should send $\large \frac{44100}{1000}=44.1$ samples. But we can't send a fractional number of samples, so we can use next sequence of data transfering
+> For example, if we have audio stream with 44100 sampling frequency, then we should send 44100 samples every second. On full speed we have 1000 frames in a second. So we should send $frac(4 4 1 0 0, 1 0 0 0)=4 4.1$ samples. But we can't send a fractional number of samples, so we can use next sequence of data transfering
 > 1. 9 transfers in a row we send 44 samples
 > 2. 1 transfer send a 45 samples
 > 
-> Then we have $(9*44+45)*100 = 44100$ samples in a second! 
+> Then we have $(9*4 4+4 5)*1 0 0 = 4 4 1 0 0$ samples in a second! 
 
 A full-speed isochronous transaction can transfer up to 1023 bytes per
 frame, or up to 1.023 Megabytes/sec. This leaves 31% of the bus bandwidth free for other uses. 

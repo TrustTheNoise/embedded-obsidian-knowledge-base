@@ -2,20 +2,16 @@
 arrow.r.long^("text")
 ```
 
-$$arrow.r.long^("text")$$
+$$a r r o w.r.l o n g^(()"t e x t")$$
 
 ```
 underbrace("up", "down")
 ```
-$$
-underbrace("up", "down")
-$$
+$$u n d e r b r a c e ("u p", "d o w n")$$
 ```
 overbrace("down", "up")
 ```
-$$
-overbrace("down", "up")
-$$ 
+$$o v e r b r a c e ("d o w n", "u p")$$ 
 ```
 #set math.equation(numbering: "(1)")
 
@@ -29,14 +25,14 @@ $ "first formula" $ // получит номер автоматически
 
 #counter(math.equation).update(1)
 
-$ "second formula" $ // получит номер автоматически
+$"s e c o n d f o r m u l a"$ // получит номер автоматически
 
 ```
 
 ```typst
 #set math.equation(numbering: "(1)")
 
-$ "first formula" $ // получит номер автоматически
+$"f i r s t f o r m u l a"$ // получит номер автоматически
 ```
 
 ```typst
@@ -44,7 +40,7 @@ $ "first formula" $ // получит номер автоматически
 
 #counter(math.equation).update(1)
 
-$ "second formula" $ // получит номер автоматически
+$"s e c o n d f o r m u l a"$ // получит номер автоматически
 ```
 
 ```

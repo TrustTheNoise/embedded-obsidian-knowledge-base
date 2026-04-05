@@ -33,7 +33,7 @@ But if OTG_FS switches from one mode to the other, all registers in the new mode
 
 ## Host-mode 
 For host mode stm32f411 has a:
-- charge pump for $V_{BUS}$ voltage generator, that increase 3.3V to USB 2.0. standardized 5.0V
+- charge pump for $V_(B U S)$ voltage generator, that increase 3.3V to USB 2.0. standardized 5.0V
 - Up to 8 host [pipes](USB%202.0..md#Endpoints%20and%20pipelines): each pipe is dynamically reconfigurable to allocate any type of USB transfer
 - Built-in [hardware scheduler](#USB%20Host%20scheduler) holding:
     - Up to 8 [interrupt](USB%202.0..md#Interrupt%20Transfer) plus [isochronous](USB%202.0..md#Isochronous%20Transfer) transfer requests in the periodic hardware queue, this requests must be paleced in frames at fixed intervals.
@@ -95,9 +95,9 @@ Application is configure Global OUT NAK by setting Set Global OUT NAK (SGONAK) b
 For more details of enumeration steps that cause peripheral states described below, see [[USB 2.0.#Enumeration steps]]
 
 ### Powered state
-If $V_{BUS}$ input detects valid voltage of 5.0V, then the USB peripheral is allowed to enter the powered state. The OTG_FS then automatically connects the DP pull-up resistor to signal full-speed device connection to the host and generates the session request interrupt (SRQINT bit in OTG_FS_GINTSTS) to notify the powered state.
+If $V_(B U S)$ input detects valid voltage of 5.0V, then the USB peripheral is allowed to enter the powered state. The OTG_FS then automatically connects the DP pull-up resistor to signal full-speed device connection to the host and generates the session request interrupt (SRQINT bit in OTG_FS_GINTSTS) to notify the powered state.
 
-If $V_{BUS}$ input detects a drop of 5.0V(for instance because of a power disturbance or if the host port has been switched off), the OTG_FS automatically disconnects and the session end detected (SEDET bit in OTG_FS_GOTGINT) interrupt is generated to notify that the OTG_FS has exited the powered state.
+If $V_(B U S)$ input detects a drop of 5.0V(for instance because of a power disturbance or if the host port has been switched off), the OTG_FS automatically disconnects and the session end detected (SEDET bit in OTG_FS_GOTGINT) interrupt is generated to notify that the OTG_FS has exited the powered state.
 
 In the powered state, the OTG_FS expects to receive reset signaling from the host(Reset is a special condition - [Single ended 0 SE0](USB%202.0..md#Signaling%20levels), where both D+ and D- are a logic low.). No other USB operation is possible.
 
@@ -280,7 +280,7 @@ The minimum depth required for each IN Endpoint Rx FIFO is the maximum packet si
 > [!note] 
 >  More space allocated in the transmit IN Endpoint FIFO results in better performance on the USB.
 
-TxFIFO depth and RAM start address <span style="color:red; font-size:25">should be written in terms of 32-bit words!</span> So to have for example Tx FIFO depth for endpoint 0 IN 512 bytes, you should type in TX0FD bits of OTG_FS_DIEPTXF0 $\large \frac{512}{4}=128$(you should divide by 4 because 32 bits is 4 bytes)
+TxFIFO depth and RAM start address <span style="color:red; font-size:25">should be written in terms of 32-bit words!</span> So to have for example Tx FIFO depth for endpoint 0 IN 512 bytes, you should type in TX0FD bits of OTG_FS_DIEPTXF0 $frac(5 1 2, 4)=1 2 8$(you should divide by 4 because 32 bits is 4 bytes)
 
 Now you should set start address of Tx FIFO of endpoint 0.
 > [!attention] 

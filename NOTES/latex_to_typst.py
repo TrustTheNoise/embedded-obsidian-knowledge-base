@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Convert LaTeX math to Typst math syntax. Handles braces, text, and arrows."""
+"""Convert LaTeX math to Typst math syntax. Handles environments, colors, and tags."""
 
 import os, sys, re
 
@@ -40,11 +40,12 @@ STRIP_COMMANDS = [
 ]
 
 COLOR_MAP = {
-    'pink': 'fuchsia', 
+    'pink': 'fuchsia',
     'orange': 'orange',
     'red': 'red',
     'green': 'green',
-    'blue': 'blue'
+    'blue': 'blue',
+    'cyan': 'aqua',
 }
 
 SIMPLE = {
@@ -58,22 +59,23 @@ SIMPLE = {
     'varphi': 'phi.alt', 'Phi': 'Phi', 'chi': 'chi', 'psi': 'psi', 'Psi': 'Psi',
     'omega': 'omega', 'Omega': 'Omega', 
     'sum': 'sum', 'prod': 'product', 'int': 'integral', 'partial': 'diff', 'nabla': 'nabla',
-    'cdot': 'dot.op', 'times': 'times', 'neq': 'eq.not', 'leq': 'lt.eq', 'geq': 'gt.eq',
-    'to': '->', 'rightarrow': '->', 'Rightarrow': '=>', 'quad': '  ', 'qquad': '    ',
+    'cdot': 'dot.op', 'times': 'times', 'neq': '!=', 'le': '<=', 'leq': '<=', 'ge': '>=', 'geq': '>=', 'ne': '!=',
+    'approx': 'approx', 'equiv': 'equiv', 'land': 'and', 'lor': 'or', 'lnot': 'not', 'neg': 'not',
+    'wedge': 'and', 'vee': 'or', 'forall': 'forall', 'exists': 'exists', 'nexists': 'exists.not',
+    'implies': '=>', 'iff': '<=>', 'in': 'in', 'notin': 'in.not', 'subset': 'subset',
+    'supset': 'supset', 'subseteq': 'subset.eq', 'supseteq': 'supset.eq', 'cap': 'sect',
+    'cup': 'union', 'emptyset': 'empty', 'to': '->', 'rightarrow': '->', 'leftarrow': '<-',
+    'leftrightarrow': '<->', 'Rightarrow': '=>', 'Leftarrow': '<=', 'Leftrightarrow': '<=>',
+    'quad': '  ', 'qquad': '    ', 'pm':'+-', 'mp':'-+', 'ldots':'...', 'cdots':'...', 'vdots':'...', 'infty':'infinity',
 }
 
 MATH_FUNCS = ['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'ln', 'log', 'exp', 'arcsin', 'arccos', 'arctan']
+ACCENT_FUNCS = {'hat': 'hat', 'vec': 'arrow', 'bar': 'overline', 'dot': 'dot', 'ddot': 'dot.double', 'tilde': 'tilde', 'underline': 'underline'}
 
-for cmd in STRIP_COMMANDS:
-    SIMPLE[cmd] = ""
+for cmd in STRIP_COMMANDS: SIMPLE[cmd] = ""
 
-ACCENT_FUNCS = {
-    'hat': 'hat', 'vec': 'arrow', 'bar': 'overline', 'dot': 'dot', 'ddot': 'dot.double',
-    'tilde': 'tilde', 'underline': 'underline',
-}
-
-def convert(s):
-    """Recursively convert LaTeX math to Typst with spacing and color support."""
+def convert(s, is_block=False):
+    """Recursively convert LaTeX math to Typst syntax."""
     result = []
     
     def add_token(t):
@@ -85,252 +87,172 @@ def convert(s):
                 result.append(" ")
         result.append(t)
 
-    i = 0
-    n = len(s)
-
+    i, n = 0, len(s)
     while i < n:
         c = s[i]
-
         if c.isspace():
-            add_token(c)
-            i += 1
-            continue
+            add_token(c); i += 1; continue
 
         if c == '\\':
             j = i + 1
             if j < n and s[j] == '\\':
-                add_token(" \\\n")
-                i = j + 1
-                continue
-            
-            if j < n and s[j] in '{}_^%$#&':
-                add_token(s[j])
-                i = j + 1
-                continue
+                add_token(" \\\n"); i = j + 1; continue
+            if j < n and s[j] in '{}_^$#&':
+                add_token(s[j]); i = j + 1; continue
 
             k = j
-            while k < n and s[k].isalpha():
-                k += 1
+            while k < n and s[k].isalpha(): k += 1
             cmd = s[j:k]
             kk = k
 
+            # --- УДАЛЕНИЕ TAG ---
+            if cmd == 'tag':
+                _, kk = get_arg(s, kk)
+                i = kk
+                continue
+
+            # --- ЦВЕТА ---
+            if cmd in ('color', 'textcolor'):
+                color_name, kk = get_arg(s, kk)
+                if not color_name:
+                    m = re.match(r'\s*([a-zA-Z]+)', s[kk:])
+                    if m: color_name = m.group(1); kk += m.end()
+                
+                if not is_block:
+                    if cmd == 'textcolor':
+                        content, kk = get_arg(s, kk)
+                        add_token(convert(content or '', is_block=False))
+                    i = kk; continue
+                else:
+                    typst_color = COLOR_MAP.get(color_name.lower(), color_name)
+                    if cmd == 'textcolor':
+                        content, kk = get_arg(s, kk)
+                        inner = convert(content or '', is_block=True).strip()
+                        add_token(f"#text(fill: {typst_color})[${inner}$]")
+                        i = kk
+                    else:
+                        rest = s[kk:]
+                        inner = convert(rest, is_block=True).strip()
+                        add_token(f"#text(fill: {typst_color})[${inner}$]")
+                        return "".join(result)
+                    continue
+
+            # --- ОКРУЖЕНИЯ ---
+            if cmd == 'begin':
+                env, kk = get_arg(s, kk)
+                end_tag = f"\\end{{{env}}}"
+                end_pos = s.find(end_tag, kk)
+                if end_pos != -1:
+                    inner = s[kk:end_pos]
+                    if env == 'cases':
+                        lines = [line.strip() for line in inner.split('\\\\')]
+                        conv_lines = [convert(l, is_block).replace(',', r'\,') for l in lines if l]
+                        add_token(f"cases({', '.join(conv_lines)})")
+                    else:
+                        add_token(convert(inner, is_block))
+                    i = end_pos + len(end_tag); continue
+
             if cmd == 'text':
                 content, kk = get_arg(s, kk)
-                add_token(f'"{content or ""}"')
-                i = kk
-                continue
-
-            elif cmd == 'mathbb':
+                add_token(f'"{content or ""}"'); i = kk; continue
+            
+            if cmd == 'mathbb':
                 content, kk = get_arg(s, kk)
                 if not content:
-                    match = re.match(r'\s*([a-zA-Z])', s[kk:])
-                    if match:
-                        content = match.group(1)
-                        kk += match.end()
-                if content:
-                    add_token(f"{content}{content}")
-                i = kk
-                continue
-
-            elif cmd == 'underbrace':
-                up, kk = get_arg(s, kk)
-                down = ""
-                temp_k = kk
-                while temp_k < n and s[temp_k].isspace(): temp_k += 1
-                if temp_k < n and s[temp_k] == '_':
-                    temp_k += 1
-                    down, kk = get_arg(s, temp_k)
-                add_token(f"underbrace({convert(up or '')}, {convert(down or '')})")
-                i = kk
-                continue
-
-            elif cmd == 'overbrace':
-                down, kk = get_arg(s, kk)
-                up = ""
-                temp_k = kk
-                while temp_k < n and s[temp_k].isspace(): temp_k += 1
-                if temp_k < n and s[temp_k] == '^':
-                    temp_k += 1
-                    up, kk = get_arg(s, temp_k)
-                add_token(f"overbrace({convert(down or '')}, {convert(up or '')})")
-                i = kk
-                continue
-
-            elif cmd == 'xrightarrow':
-                formula, kk = get_arg(s, kk)
-                add_token(f" = |{convert(formula or '')}| = ")
-                i = kk
-                continue
-
-            if cmd in MATH_FUNCS:
-                add_token(cmd)
-                i = k
-                continue
-
-            if cmd in ('color', 'textcolor'):
-                name, kk = get_arg(s, kk)
-                if not name:
-                    m = re.match(r'\s*([a-zA-Z]+)', s[kk:])
-                    if m: name = m.group(1); kk += m.end()
-                
-                typst_color = COLOR_MAP.get(name.lower(), name)
-                
-                if cmd == 'textcolor':
-                    content, kk = get_arg(s, kk)
-                    inner = convert(content or '').strip()
-                    add_token(f"#text(fill: {typst_color})[${inner}$]")
-                    i = kk
-                else:
-                    rest = s[kk:]
-                    trailing_ws = ""
-                    ws_match = re.search(r'\s+$', rest)
-                    if ws_match:
-                        trailing_ws = ws_match.group(0)
-                    
-                    inner = convert(rest).strip()
-                    add_token(f"#text(fill: {typst_color})[${inner}$]{trailing_ws}")
-                    # Очищаем результат всей функции перед возвратом
-                    return "".join(result)
-                continue
+                    m = re.match(r'\s*([a-zA-Z])', s[kk:])
+                    if m: content = m.group(1); kk += m.end()
+                if content: add_token(f"{content}{content}")
+                i = kk; continue
 
             if cmd in ('frac', 'dfrac', 'tfrac'):
                 num, kk = get_arg(s, kk); den, kk = get_arg(s, kk)
-                add_token(f"frac({convert(num or '')}, {convert(den or '')})")
-                i = kk
-            elif cmd == 'sqrt':
+                add_token(f"frac({convert(num or '', is_block)}, {convert(den or '', is_block)})"); i = kk; continue
+            
+            if cmd == 'sqrt':
                 content, kk = get_arg(s, kk)
-                add_token(f"sqrt({convert(content or '')})")
-                i = kk
-            elif cmd in ACCENT_FUNCS:
-                content, kk = get_arg(s, kk)
-                add_token(f"{ACCENT_FUNCS[cmd]}({convert(content or '')})")
-                i = kk
-            elif cmd in SIMPLE:
-                add_token(SIMPLE[cmd])
-                i = k
-            else:
-                add_token(cmd)
-                i = k
-            continue
+                add_token(f"sqrt({convert(content or '', is_block)})"); i = kk; continue
 
-        if c.isdigit():
-            num_match = re.match(r'\d+', s[i:])
-            if num_match:
-                add_token(num_match.group())
-                i += len(num_match.group())
-                continue
+            if cmd in ACCENT_FUNCS:
+                content, kk = get_arg(s, kk)
+                add_token(f"{ACCENT_FUNCS[cmd]}({convert(content or '', is_block)})"); i = kk; continue
+
+            if cmd in SIMPLE:
+                add_token(SIMPLE[cmd]); i = k; continue
+            
+            add_token(cmd); i = k; continue
 
         if c in ('_', '^'):
             j = i + 1
             while j < n and s[j].isspace(): j += 1
             if j < n and s[j] == '{':
                 end = find_close(s, j)
-                inner = s[j+1:end]
-                add_token(f"{c}({convert(inner)})")
-                i = end + 1
+                add_token(f"{c}({convert(s[j+1:end], is_block)})"); i = end + 1
             else:
                 if j < n and s[j] == '\\':
                     k2 = j + 1
                     while k2 < n and s[k2].isalpha(): k2 += 1
                     cmd_part = s[j+1:k2]
-                    conv_part = SIMPLE.get(cmd_part, cmd_part)
-                    add_token(f"{c}({conv_part})")
-                    i = k2
-                elif j < n:
-                    add_token(f"{c}({s[j]})")
-                    i = j + 1
-                else:
-                    add_token(c); i = j
+                    add_token(f"{c}({SIMPLE.get(cmd_part, cmd_part)})"); i = k2
+                elif j < n: add_token(f"{c}({s[j]})"); i = j + 1
+                else: add_token(c); i = j
             continue
 
         if c.isalpha():
-            found_func = False
-            for func in MATH_FUNCS:
-                if s[i:].startswith(func):
-                    end_idx = i + len(func)
-                    if end_idx == n or not s[end_idx].isalpha():
-                        add_token(func)
-                        i = end_idx
-                        found_func = True
-                        break
-            if found_func: continue
-            add_token(c)
-            i += 1
-            continue
+            found_f = False
+            for f in MATH_FUNCS:
+                if s[i:].startswith(f):
+                    e = i + len(f)
+                    if e == n or not s[e].isalpha():
+                        add_token(f); i = e; found_f = True; break
+            if found_f: continue
+            add_token(c); i += 1; continue
 
         if c == '{':
             end = find_close(s, i)
-            inner_content = s[i+1:end]
-            add_token(f"{convert(inner_content)}")
-            i = end + 1
+            add_token(convert(s[i+1:end], is_block)); i = end + 1
         else:
-            add_token(c)
-            i += 1
+            add_token(c); i += 1
 
-    return "".join(result).strip() # Финальная очистка пробелов по краям
+    return "".join(result).strip()
 
 def convert_math_in_text(text):
-    result = []
-    i = 0
-    n = len(text)
+    result, i, n = [], 0, len(text)
     while i < n:
         if text[i:i+3] == '```':
             end = text.find('```', i + 3)
-            if end >= 0:
-                result.append(text[i:end+3]); i = end + 3
-            else:
-                result.append(text[i:]); i = n
+            if end >= 0: result.append(text[i:end+3]); i = end + 3
+            else: result.append(text[i:]); i = n
             continue
-        
         if text[i:i+2] == '$$':
             end = text.find('$$', i + 2)
             if end >= 0:
-                inner = text[i+2:end]
-                # Очищаем внутренности от пробелов, которые могли остаться после удаления \Large
-                result.append('$$' + convert(inner).strip() + '$$')
-                i = end + 2
-            else:
-                result.append(text[i]); i += 1
+                result.append('$$' + convert(text[i+2:end], is_block=True) + '$$'); i = end + 2
+            else: result.append(text[i]); i += 1
             continue
-
         if text[i] == '$':
             j = i + 1
-            found_close = False
+            found = False
             while j < n:
                 if text[j] == '$':
-                    inner = text[i+1:j]
-                    result.append('$' + convert(inner).strip() + '$')
-                    i = j + 1
-                    found_close = True
-                    break
+                    result.append('$' + convert(text[i+1:j], is_block=False) + '$')
+                    i = j + 1; found = True; break
                 elif text[j] == '\\': j += 2
                 else: j += 1
-            if not found_close:
-                result.append(text[i]); i += 1
+            if not found: result.append(text[i]); i += 1
             continue
-
         result.append(text[i]); i += 1
     return "".join(result)
 
 def main():
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-    else:
-        file_path = input("Введите путь к .md файлу: ").strip()
-    
+    if len(sys.argv) > 1: file_path = sys.argv[1]
+    else: file_path = input("Файл: ").strip()
     file_path = file_path.replace('"', '').replace("'", "")
-    if not os.path.isfile(file_path):
-        print(f"Файл не найден: {file_path}"); return
-
+    if not os.path.isfile(file_path): return
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        with open(file_path, 'r', encoding='utf-8') as f: content = f.read()
         new_content = convert_math_in_text(content)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print(f"Файл '{os.path.basename(file_path)}' успешно обновлен.")
-    except Exception as e:
-        print(f"Ошибка: {e}")
+        with open(file_path, 'w', encoding='utf-8') as f: f.write(new_content)
+        print(f"Обновлено: {os.path.basename(file_path)}")
+    except Exception as e: print(f"Ошибка: {e}")
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
